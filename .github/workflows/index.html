@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+
+<head>
+    <meta charset="UTF-8">
+    <title>さこぐち</title>
+    <!--TensorFlowのパッケージをインポート　1つ目が機械学習用、2つ目が音声用-->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@1.3.1/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/speech-commands@0.4.0/dist/speech-commands.min.js"></script>
+
+    <style>
+        /* 基本スタイル */
+        body {
+            font-family: 'Arial', sans-serif; /* フォント設定 */
+            background-color: #f0f0f0; /* 背景色 */
+            color: #333; /* 文字色 */
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+        }
+    
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            color: white;
+            background-color: #007BFF;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 20px;
+        }
+    
+        button:hover {
+            background-color: #0056b3;
+        }
+    
+        div {
+            margin: 5px 0;
+        }
+    
+        #label-container {
+            margin-top: 20px;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+    
+        /* レスポンシブデザイン：タブレット */
+        @media (min-width: 768px) {
+            body {
+                font-size: 18px;
+            }
+            
+            button {
+                font-size: 18px;
+            }
+        }
+    
+        /* レスポンシブデザイン：デスクトップ */
+        @media (min-width: 992px) {
+            body {
+                font-size: 20px;
+            }
+            
+            button {
+                font-size: 20px;
+            }
+        }
+        /* アニメーション用のクラス */
+    .animated {
+    animation: fadeIn 0.5s ease-in-out;
+        }
+
+        @keyframes fadeIn {
+        from {
+        opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
+        }
+
+    </style>
+    
+</head>
+
+
+<body>
+    <!--HTMLはここから-->
+    <div>文章を読んでください</div>
+
+    <button type="button" onclick="init()">ボタンを押してね(少し時間かかる)</button>
+    <div id="label-container"></div>
+    <!--ボタンを押すとinit関数が呼び出されます-->
+    <div id="label-container"></div>
+
+    <script type="text/javascript">
+        //ここからJavascript
+
+        // ！！！ここが重要！！！
+        //ここにTensorFlow.jsのリンクを貼ります
+        const URL = "https://teachablemachine.withgoogle.com/models/fNQB5KS6o/";
+
+        async function createModel() {
+            const checkpointURL = URL + "model.json"; // モデル構造の情報を確認
+            const metadataURL = URL + "metadata.json"; // 追加情報がないか確認
+
+            // 音声認識モデルの作成
+            const recognizer = speechCommands.create("BROWSER_FFT", undefined, checkpointURL, metadataURL);
+            await recognizer.ensureModelLoaded();
+            return recognizer;
+        }
+
+        async function init() {
+            const recognizer = await createModel();//音声が何に当てはまるか（数字）
+            const classLabels = recognizer.wordLabels(); // そのラベル（言葉）
+            const labelContainer = document.getElementById("label-container");
+            labelContainer.innerHTML = ''; // 定期的に消して
+            classLabels.forEach(() => {
+                const div = document.createElement("div");//定期的に書き込み
+                labelContainer.appendChild(div);
+            });
+
+            // 予測結果の表示と更新
+            recognizer.listen(({scores}) => { //PCに声を聞くように命令
+                const scoresArray = Array.from(scores);//その確率
+                let maxScoreIndex = 0;
+                scoresArray.forEach((score, index) => {
+                    // 確率をパーセンテージで表示
+                    labelContainer.childNodes[index].textContent = `${classLabels[index]}: ${(score * 100).toFixed(2)}%`;
+                    // 最も確率が高いラベルのインデックスを更新
+                    if (score > scoresArray[maxScoreIndex]) {
+                        maxScoreIndex = index;
+                    }
+                });
+                // 全てのラベルの色をリセットし、最も高いものに色を付ける
+                labelContainer.childNodes.forEach((node, index) => {
+                    node.style.color = index === maxScoreIndex ? 'red' : 'black';
+                });
+            }, {
+                includeSpectrogram: false,
+                probabilityThreshold: 0.75,//75%超えたら教えてね
+                invokeCallbackOnNoiseAndUnknown: true,
+                overlapFactor: 0.5
+            });
+        }
+
+        // 予測結果の表示と更新の部分を変更
+            recognizer.listen(({scores}) => {
+                const scoresArray = Array.from(scores);
+                let maxScoreIndex = 0;
+                scoresArray.forEach((score, index) => {
+                    const label = `${classLabels[index]}: ${(score * 100).toFixed(2)}%`;
+                    const div = labelContainer.childNodes[index];
+                    div.textContent = label;
+                    div.className = 'animated'; // アニメーションクラスを適用
+
+                    // 最も確率が高いラベルのインデックスを更新
+                    if (score > scoresArray[maxScoreIndex]) {
+                        maxScoreIndex = index;
+                    }
+                });
+
+                // 全てのラベルの色をリセットし、最も高いものに色を付ける
+                labelContainer.childNodes.forEach((node, index) => {
+                    node.style.color = index === maxScoreIndex ? 'red' : 'black';
+                });
+            }, {
+                includeSpectrogram: false,
+                probabilityThreshold: 0.75,
+                invokeCallbackOnNoiseAndUnknown: true,
+                overlapFactor: 0.5
+            });
+
+    </script>
+</body>
+</html>
